@@ -55,16 +55,58 @@ describe('fetchFromSourcify', () => {
       status: 404,
     })
 
-    await expect(fetchFromSourcify(1, '0xabc', undefined, mockFetch))
-      .rejects.toThrow(NatSpecNotFoundError)
+    const err = await fetchFromSourcify(1, '0xabc', undefined, mockFetch).catch(e => e)
+    expect(err).toBeInstanceOf(NatSpecNotFoundError)
+    expect(err.chainId).toBe(1)
+    expect(err.address).toBe('0xabc')
+  })
 
-    try {
-      await fetchFromSourcify(1, '0xabc', undefined, mockFetch)
-    } catch (err) {
-      expect(err).toBeInstanceOf(NatSpecNotFoundError)
-      expect((err as NatSpecNotFoundError).chainId).toBe(1)
-      expect((err as NatSpecNotFoundError).address).toBe('0xabc')
-    }
+  it('wraps network errors in NatSpecFetchError', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError('fetch failed'))
+
+    const err = await fetchFromSourcify(1, '0xabc', undefined, mockFetch).catch(e => e)
+    expect(err).toBeInstanceOf(NatSpecFetchError)
+    expect(err.status).toBe(0)
+    expect(err.chainId).toBe(1)
+    expect(err.address).toBe('0xabc')
+    expect(err.message).toContain('fetch failed')
+    expect(err.cause).toBeInstanceOf(TypeError)
+  })
+
+  it('wraps JSON parse errors in NatSpecFetchError', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new SyntaxError('Unexpected token')),
+    })
+
+    const err = await fetchFromSourcify(1, '0xabc', undefined, mockFetch).catch(e => e)
+    expect(err).toBeInstanceOf(NatSpecFetchError)
+    expect(err.status).toBe(200)
+    expect(err.message).toContain('Invalid JSON')
+    expect(err.cause).toBeInstanceOf(SyntaxError)
+  })
+
+  it('defaults missing devdoc to empty object', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ userdoc: { kind: 'user', methods: {} } }),
+    })
+
+    const result = await fetchFromSourcify(1, '0xabc', undefined, mockFetch)
+    expect(result.devdoc).toEqual({ methods: {} })
+  })
+
+  it('defaults missing userdoc to empty object', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ devdoc: { kind: 'dev', methods: {} } }),
+    })
+
+    const result = await fetchFromSourcify(1, '0xabc', undefined, mockFetch)
+    expect(result.userdoc).toEqual({ methods: {} })
   })
 
   it('throws NatSpecFetchError on non-ok response', async () => {
@@ -73,16 +115,10 @@ describe('fetchFromSourcify', () => {
       status: 500,
     })
 
-    await expect(fetchFromSourcify(1, '0xabc', undefined, mockFetch))
-      .rejects.toThrow(NatSpecFetchError)
-
-    try {
-      await fetchFromSourcify(1, '0xabc', undefined, mockFetch)
-    } catch (err) {
-      expect(err).toBeInstanceOf(NatSpecFetchError)
-      expect((err as NatSpecFetchError).status).toBe(500)
-      expect((err as NatSpecFetchError).chainId).toBe(1)
-      expect((err as NatSpecFetchError).address).toBe('0xabc')
-    }
+    const err = await fetchFromSourcify(1, '0xabc', undefined, mockFetch).catch(e => e)
+    expect(err).toBeInstanceOf(NatSpecFetchError)
+    expect(err.status).toBe(500)
+    expect(err.chainId).toBe(1)
+    expect(err.address).toBe('0xabc')
   })
 })

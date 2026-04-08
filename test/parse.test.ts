@@ -159,6 +159,29 @@ describe('parse', () => {
       })
     })
 
+    it('uses name() for state variable with params not in methods', () => {
+      const devdoc: SourcifyDevDoc = {
+        kind: 'dev',
+        stateVariables: {
+          balances: {
+            details: 'Token balances per account',
+            params: { account: 'The account address' },
+            returns: { _0: 'The balance' },
+          },
+        },
+      }
+
+      const result = parse(emptyUserDoc, devdoc)
+      // Should be balances() not balances(account) — NatSpec params are names, not types
+      expect(result.functions.balances).toEqual({
+        signature: 'balances()',
+        name: 'balances',
+        details: 'Token balances per account',
+        params: { account: 'The account address' },
+        returns: { _0: 'The balance' },
+      })
+    })
+
     it('does not duplicate state variable if already in methods', () => {
       const devdoc: SourcifyDevDoc = {
         kind: 'dev',

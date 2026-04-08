@@ -1,10 +1,10 @@
 import type { NatSpecConfig, NatSpecClient } from './types'
-import { fetchFromSourcify } from './sourcify'
+import { fetchFromSourcify, DEFAULT_BASE_URL } from './sourcify'
 import { parse } from './parse'
 import { toMetadata } from './metadata'
 
 export function createNatSpec(config: NatSpecConfig = {}): NatSpecClient {
-  const baseUrl = config.baseUrl ?? 'https://sourcify.dev/server'
+  const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL
   const fetchFn = config.fetch ?? globalThis.fetch
 
   return {

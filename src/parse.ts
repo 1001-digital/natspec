@@ -46,12 +46,14 @@ function parseFunctions(
   if (devdoc.stateVariables) {
     for (const [name, sv] of Object.entries(devdoc.stateVariables)) {
       // State variable getters may already appear in methods with their full signature.
-      // If not, we add them with just the name (no params means simple getter).
-      const alreadyHasSig = [...allSigs].some(sig => extractName(sig) === name)
+      // If not, we add them as name() — NatSpec doesn't carry Solidity types for
+      // state variable params, so we can't reconstruct the canonical getter signature.
+      let alreadyHasSig = false
+      for (const sig of allSigs) {
+        if (extractName(sig) === name) { alreadyHasSig = true; break }
+      }
       if (!alreadyHasSig) {
-        // For public state variables without params, the getter has no arguments
-        const params = sv.params ? `(${Object.keys(sv.params).join(',')})` : '()'
-        allSigs.add(`${name}${params}`)
+        allSigs.add(`${name}()`)
       }
     }
   }

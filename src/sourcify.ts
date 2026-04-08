@@ -1,7 +1,7 @@
 import type { SourcifyUserDoc, SourcifyDevDoc } from './types'
-import { NatSpecFetchError, NatSpecNotFoundError } from './errors'
+import { NatSpecFetchError, NatSpecNotFoundError, errorMessage } from './errors'
 
-const DEFAULT_BASE_URL = 'https://sourcify.dev/server'
+export const DEFAULT_BASE_URL = 'https://sourcify.dev/server'
 
 export interface SourcifyResponse {
   userdoc: SourcifyUserDoc
@@ -16,7 +16,16 @@ export async function fetchFromSourcify(
 ): Promise<SourcifyResponse> {
   const url = `${baseUrl}/v2/contract/${chainId}/${address}?fields=userdoc,devdoc`
 
-  const response = await fetchFn(url)
+  let response: Response
+  try {
+    response = await fetchFn(url)
+  } catch (error) {
+    throw new NatSpecFetchError(
+      `Failed to fetch from Sourcify: ${errorMessage(error)}`,
+      { status: 0, chainId, address },
+      { cause: error },
+    )
+  }
 
   if (response.status === 404) {
     throw new NatSpecNotFoundError(chainId, address)
@@ -29,6 +38,19 @@ export async function fetchFromSourcify(
     )
   }
 
-  const data = await response.json()
-  return data as SourcifyResponse
+  let data: any
+  try {
+    data = await response.json()
+  } catch (error) {
+    throw new NatSpecFetchError(
+      `Invalid JSON from Sourcify: ${errorMessage(error)}`,
+      { status: response.status, chainId, address },
+      { cause: error },
+    )
+  }
+
+  return {
+    userdoc: data.userdoc ?? { methods: {} },
+    devdoc: data.devdoc ?? { methods: {} },
+  }
 }
